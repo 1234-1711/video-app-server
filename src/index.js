@@ -1,4 +1,3 @@
-// src/index.js
 import "./config.js"; // must be the very first import ✅
 
 import express from "express";
@@ -8,7 +7,6 @@ import { connectMongo } from "./mongo.js";
 import { fetchYouTubeMetadata } from "./youtube.js";
 
 const app = express();
-const PORT = process.env.PORT || 4000;
 
 // Middlewares
 app.use(cors());
@@ -38,7 +36,13 @@ app.get("/videos", async (req, res) => {
   }
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`✅ Server running on http://localhost:${PORT}`);
-});
+// ✅ For local dev: run app.listen()
+// 🚫 On Vercel, we export the app instead of listening
+if (process.env.VERCEL !== "1") {
+  const PORT = process.env.PORT || 4000;
+  app.listen(PORT, () => {
+    console.log(`✅ Server running on http://localhost:${PORT}`);
+  });
+}
+
+export default app;
