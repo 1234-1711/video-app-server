@@ -1,36 +1,44 @@
+// src/index.js
+import "./config.js"; // must be the very first import ✅
+
 import express from "express";
-import { MongoClient } from "mongodb";
-import dotenv from "dotenv";
 import cors from "cors";
 
-dotenv.config();
+import { connectMongo } from "./mongo.js";
+import { fetchYouTubeMetadata } from "./youtube.js";
 
 const app = express();
+const PORT = process.env.PORT || 4000;
+
+// Middlewares
 app.use(cors());
 app.use(express.json());
 
-const client = new MongoClient(process.env.MONGODB_URI);
+// Health check
+app.get("/", (req, res) => {
+  res.json({ status: "ok", message: "YouTube Metadata API running" });
+});
 
-let collection;
-async function connectDB() {
-  if (!collection) {
-    await client.connect();
-    const db = client.db(process.env.DB_NAME);
-    collection = db.collection(process.env.COLLECTION_NAME);
-  }
-}
-
-// API route
-app.get("/api/videos", async (req, res) => {
+// Main route: fetch all videos with metadata
+app.get("/videos", async (req, res) => {
   try {
-    await connectDB();
-    const videos = await collection.find({}).toArray();
-    res.json(videos);
+    const collection = await connectMongo();
+    const docs = await collection.find({}).limit(20).toArray();
+
+    const videoIds = docs.map((d) => d.videoId);
+    if (!videoIds.length) {
+      return res.json([]);
+    }
+
+    const enriched = await fetchYouTubeMetadata(videoIds);
+    res.json(enriched);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Database error" });
+    console.error("Error in /videos:", err);
+    res.status(500).json({ error: err.message });
   }
 });
 
-// ✅ Export for Vercel
-export default app;
+// Start server
+app.listen(PORT, () => {
+  console.log(`✅ Server running on http://localhost:${PORT}`);
+});
